@@ -2,6 +2,12 @@
 REPO_URL="https://github.com/davidnet-net/NGINX-CONF"
 LOG_FILE="/var/log/nginx-update.log"
 
+# Check if the script is being run as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "I need sudo."
+    exit 1
+fi
+
 echo "Starting NGINX configuration update process..." >> $LOG_FILE
 
 # Stop NGINX service
