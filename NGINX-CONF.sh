@@ -51,7 +51,7 @@ if sudo nginx -t; then
     echo "Checking SSL certificates..." >> $LOG_FILE
     
     # Extract domain names from the NGINX configuration files that need SSL (listen 443 ssl)
-    domains=$(grep -l 'listen 443 ssl' /etc/nginx/NGINX_CONF/*.conf | \
+    domains=$(grep -l 'listen 443 ssl' /etc/nginx/NGINX_CONF/sites-enabled/* | \
               xargs -I {} grep -oP 'server_name\s+\K([a-zA-Z0-9.-]+)' {} | sort -u)
 
     if [ -z "$domains" ]; then
