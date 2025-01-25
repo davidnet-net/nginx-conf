@@ -6,62 +6,69 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "I need sudo."
     exit 1
 fi
-echo "Renewing certs"sudo certbot renew
+
+echo "Renewing certs"
+sudo certbot renew
 
 echo "Starting NGINX configuration update process..."
-# Stop NGINX service
-sudo systemctl stop nginx
-echo "Stopped NGINX service."cd /etc/nginx/
 
-# Backup and remove old configurations if they exist
-if [ -d "NGINX_CONF_OLD" ]; then
-    rm -rf "NGINX_CONF_OLD"
-    echo "Removed old NGINX_CONF_OLD directory."fi
+# Stop NGINX service
+systemctl stop nginx
+echo "Stopped NGINX service."
+
+# Backup current configuration
+cd /etc/nginx/ || { echo "Failed to navigate to /etc/nginx/"; exit 1; }
 if [ -d "NGINX_CONF" ]; then
-    rm -rf "NGINX_CONF"
-    echo "Backed up and removed old NGINX_CONF directory."fi
+    mv NGINX_CONF NGINX_CONF_OLD
+    echo "Backed up current NGINX_CONF to NGINX_CONF_OLD."
+fi
+
 if [ -d "sites-enabled" ]; then
-    rm -rf "sites-enabled"
-    echo "Removed old sites-enabled directory."fi
+    mv sites-enabled sites-enabled.bak
+    echo "Backed up sites-enabled to sites-enabled.bak."
+fi
 
 # Clone the new NGINX configuration from GitHub
-mkdir NGINX_CONF
-cd NGINX_CONF
-git clone $REPO_URL .
+mkdir -p NGINX_CONF
+cd NGINX_CONF || { echo "Failed to navigate to NGINX_CONF"; exit 1; }
+git clone "$REPO_URL" .
+if [ $? -ne 0 ]; then
+    echo "Failed to clone repository. Exiting."
+    exit 1
+fi
 echo "Cloned new NGINX configuration from GitHub."
-# Restore the 'sites-enabled' directory
+
+# Restore 'sites-enabled' directory
 cp -r sites-enabled ../sites-enabled
 echo "Restored sites-enabled directory."
-cd /var/
+
+# Update web directory
+cd /var/ || { echo "Failed to navigate to /var/"; exit 1; }
 if [ -d "www" ]; then
     rm -rf "www"
-    echo "Removed old www directory."fi
+    echo "Removed old www directory."
+fi
 cp -r /etc/nginx/NGINX_CONF/www/ www/
 echo "Copied new www directory from configuration."
-cd /etc/nginx/NGINX_CONF/
 
 # Test the NGINX configuration
-if sudo nginx -t; then
+if nginx -t; then
     echo "NGINX configuration is valid."
     # Restart NGINX service
-    echo "Restarting NGINX..."    sudo systemctl start nginx
-    echo "NGINX restarted successfully."else
-    if [ -d "NGINX_CONF_OLD" ]; then
-        echo "NGINX configuration test failed. Restoring old configuration..."        rm -rf /etc/nginx/NGINX_CONF
-        mv /etc/nginx/NGINX_CONF_OLD /etc/nginx/NGINX_CONF
-        cp -r /etc/nginx/NGINX_CONF/sites-enabled /etc/nginx/sites-enabled
-        echo "Restored old NGINX configuration."        sudo systemctl start nginx
-        echo "NGINX restarted with the old configuration."    else
-        echo "Nginx exploded!"
-        exit 1
-    fi
+    echo "Restarting NGINX..."
+    systemctl start nginx
+    echo "NGINX restarted successfully."
+else
+    echo "NGINX configuration test failed. Restoring old configuration..."
+    rm -rf /etc/nginx/NGINX_CONF
+    mv /etc/nginx/NGINX_CONF_OLD /etc/nginx/NGINX_CONF
+    mv /etc/nginx/sites-enabled.bak /etc/nginx/sites-enabled
+    systemctl start nginx
+    echo "NGINX restarted with the old configuration."
+    exit 1
 fi
-
-cd /etc/nginx/
 
 # Cleanup
-cp -r NGINX_CONF NGINX_CONF_OLD
-if [ -d "NGINX_CONF" ]; then
-    rm -rf "NGINX_CONF"
-    echo "Cleaned up new! "fi
-fi
+cd /etc/nginx/ || exit
+rm -rf NGINX_CONF
+echo "Cleaned up temporary files."
