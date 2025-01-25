@@ -52,7 +52,7 @@ cp -r /etc/nginx/NGINX_CONF/www/ www/
 echo "Copied new www directory from configuration."
 
 # Test the NGINX configuration
-if nginx -t; then
+if sudo nginx -t; then
     echo "NGINX configuration is valid."
     # Restart NGINX service
     echo "Restarting NGINX..."
