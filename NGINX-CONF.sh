@@ -7,14 +7,16 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-echo "Renewing certs"
-sudo certbot renew
 
 echo "Starting NGINX configuration update process..."
 
 # Stop NGINX service
 systemctl stop nginx
 echo "Stopped NGINX service."
+sleep 5
+
+echo "Renewing certs"
+sudo certbot renew
 
 # Backup current configuration
 cd /etc/nginx/ || { echo "Failed to navigate to /etc/nginx/"; exit 1; }
@@ -24,8 +26,8 @@ if [ -d "NGINX_CONF" ]; then
 fi
 
 if [ -d "sites-enabled" ]; then
-    mv sites-enabled sites-enabled.bak
-    echo "Backed up sites-enabled to sites-enabled.bak."
+    mv sites-enabled sites-enabled-old
+    echo "Backed up sites-enabled to sites-enabled-old."
 fi
 
 # Clone the new NGINX configuration from GitHub
@@ -48,7 +50,7 @@ if [ -d "www" ]; then
     rm -rf "www"
     echo "Removed old www directory."
 fi
-cp -r /etc/nginx/NGINX_CONF/www/ www/
+cp -r /etc/nginx/NGINX_CONF/www/ /var/www/
 echo "Copied new www directory from configuration."
 
 # Test the NGINX configuration
@@ -62,7 +64,6 @@ else
     echo "NGINX configuration test failed. Restoring old configuration..."
     rm -rf /etc/nginx/NGINX_CONF
     mv /etc/nginx/NGINX_CONF_OLD /etc/nginx/NGINX_CONF
-    mv /etc/nginx/sites-enabled.bak /etc/nginx/sites-enabled
     systemctl start nginx
     echo "NGINX restarted with the old configuration."
     exit 1
